@@ -4,69 +4,66 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"log"
-	"math/rand"
 	"net/http"
-	"strconv"
 )
 
-type Post struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Body  string `json:"body"`
+type Stock struct {
+	Ticker string  `json:"ticker"`
+	Title  string  `json:"title"`
+	Rsi    float32 `json:"rsi"`
 }
 
-var posts []Post
+var stocks []Stock
 
-func getPosts(w http.ResponseWriter, r *http.Request) {
+func getStocks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(posts)
+	json.NewEncoder(w).Encode(stocks)
 }
 
-func createPost(w http.ResponseWriter, r *http.Request) {
+func createStock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var post Post
-	_ = json.NewDecoder(r.Body).Decode(&post)
-	post.ID = strconv.Itoa(rand.Intn(1000000))
-	posts = append(posts, post)
-	json.NewEncoder(w).Encode(&post)
+	var stock Stock
+	_ = json.NewDecoder(r.Body).Decode(&stock)
+	stocks = append(stocks, stock)
+	json.NewEncoder(w).Encode(&stock)
 }
-func getPost(w http.ResponseWriter, r *http.Request) {
+func getStock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	for _, item := range posts {
-		if item.ID == params["id"] {
+	for _, item := range stocks {
+		if item.Ticker == params["ticker"] {
 			json.NewEncoder(w).Encode(item)
 			return
 		}
 	}
-	json.NewEncoder(w).Encode(&Post{})
+	json.NewEncoder(w).Encode(&Stock{})
 }
-func updatePost(w http.ResponseWriter, r *http.Request) {
+func updateStock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	for index, item := range posts {
-		if item.ID == params["id"] {
-			posts = append(posts[:index], posts[index+1:]...)
-			var post Post
-			_ = json.NewDecoder(r.Body).Decode(&post)
-			post.ID = params["id"]
-			posts = append(posts, post)
-			json.NewEncoder(w).Encode(&post)
+	for index, item := range stocks {
+		if item.Ticker == params["ticker"] {
+			stocks = append(stocks[:index], stocks[index+1:]...)
+			var Stock Stock
+			_ = json.NewDecoder(r.Body).Decode(&Stock)
+			Stock.Ticker = params["ticker"]
+			stocks = append(stocks, Stock)
+			json.NewEncoder(w).Encode(&Stock)
 			return
 		}
 	}
-	json.NewEncoder(w).Encode(posts)
+	json.NewEncoder(w).Encode(stocks)
 }
-func deletePost(w http.ResponseWriter, r *http.Request) {
+func deleteStock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	for index, item := range posts {
-		if item.ID == params["id"] {
-			posts = append(posts[:index], posts[index+1:]...)
+	for index, item := range stocks {
+		if item.Ticker == params["ticker"] {
+			stocks = append(stocks[:index], stocks[index+1:]...)
 			break
 		}
 	}
-	json.NewEncoder(w).Encode(posts)
+	json.NewEncoder(w).Encode(stocks)
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -80,12 +77,15 @@ func loggingMiddleware(next http.Handler) http.Handler {
 
 func main() {
 	router := mux.NewRouter()
-	posts = append(posts, Post{ID: "1", Title: "My first post", Body: "This is the content of my first post"})
-	router.HandleFunc("/posts", getPosts).Methods("GET")
-	router.HandleFunc("/posts", createPost).Methods("POST")
-	router.HandleFunc("/posts/{id}", getPost).Methods("GET")
-	router.HandleFunc("/posts/{id}", updatePost).Methods("PUT")
-	router.HandleFunc("/posts/{id}", deletePost).Methods("DELETE")
+
+	stocks = append(stocks, Stock{Ticker: "MSFT", Title: "Microsoft Corp", Rsi: 69.05})
+	stocks = append(stocks, Stock{Ticker: "DISCA", Title: "Discovery Inc.", Rsi: 33.75})
+
+	router.HandleFunc("/stocks", getStocks).Methods("GET")
+	router.HandleFunc("/stocks", createStock).Methods("Stock")
+	router.HandleFunc("/stocks/{ticker}", getStock).Methods("GET")
+	router.HandleFunc("/stocks/{ticker}", updateStock).Methods("PUT")
+	router.HandleFunc("/stocks/{ticker}", deleteStock).Methods("DELETE")
 
 	router.Use(loggingMiddleware)
 	http.ListenAndServe(":8000", router)
