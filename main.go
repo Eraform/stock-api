@@ -76,6 +76,12 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	store, err := NewBadgerDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer store.db.Close()
+
 	router := mux.NewRouter()
 
 	stocks = append(stocks, Stock{Ticker: "MSFT", Title: "Microsoft Corp", Rsi: 69.05})
