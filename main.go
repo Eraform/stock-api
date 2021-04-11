@@ -8,9 +8,10 @@ import (
 	"log"
 	"net/http"
 )
-type Store struct {
-	db      *Badger
-}
+
+//type Store struct {
+//	db      *Badger
+//}
 
 type Stock struct {
 	Ticker string  `json:"ticker"`
@@ -33,7 +34,7 @@ func createStock(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&stock)
 }
 
-func (store *Store) createStockInDB(w http.ResponseWriter, r *http.Request) {
+func (store *Badger) createStockInDB(w http.ResponseWriter, r *http.Request) {
 	//w.Header().Set("Content-Type", "application/json")
 	var stock Stock
 	_ = json.NewDecoder(r.Body).Decode(&stock)
@@ -42,24 +43,25 @@ func (store *Store) createStockInDB(w http.ResponseWriter, r *http.Request) {
 	if err := e.Encode(stock); err != nil {
 		panic(err)
 	}
-	store.db.Update([]byte(stock.Ticker), bytesBuffer.Bytes())
+	store.Update([]byte(stock.Ticker), bytesBuffer.Bytes())
 
 	json.NewEncoder(w).Encode(&stock)
 }
-func (store *Store) getStockInDB(w http.ResponseWriter, r *http.Request) {
+func (store *Badger) getStockInDB(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
-	item, err := store.db.Get([]byte(params["ticker"]))
+	item, err := store.Get([]byte(params["ticker"]))
 	if err != nil {
-		log.Println(params["ticker"], "No found")
-		json.NewEncoder(w).Encode(&Stock{})
+		log.Println(params["ticker"], "Not found")
+		return
 	}
 
 	var stockDecode Stock
 	d := gob.NewDecoder(bytes.NewReader(item))
 	if err := d.Decode(&stockDecode); err != nil {
-		panic(err)
+		log.Println(params["ticker"], "Decoding error")
+		return
 	}
 
 	json.NewEncoder(w).Encode(&stockDecode)
@@ -131,6 +133,9 @@ func main() {
 	router.HandleFunc("/stocks/{ticker}", updateStock).Methods("PUT")
 	router.HandleFunc("/stocks/{ticker}", deleteStock).Methods("DELETE")
 
+	router.HandleFunc("/db/stocks", store.createStockInDB).Methods("POST")
+	router.HandleFunc("/db/stocks/{ticker}", store.getStockInDB).Methods("GET")
+
 	router.Use(loggingMiddleware)
-	http.ListenAndServe(":8000", router)
+	http.ListenAndServe(":8080", router)
 }
