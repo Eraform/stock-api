@@ -10,12 +10,6 @@ type Badger struct {
 	db *badger.DB
 }
 
-// KVP simple named key value pair storage
-type KVP struct {
-	Key   []byte
-	Value []byte
-}
-
 // NewBadgerDB returns a new badgerdb
 func NewBadgerDB() (Badger, error) {
 	b := Badger{}

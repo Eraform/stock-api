@@ -1,11 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 )
+type Store struct {
+	db      *Badger
+}
 
 type Stock struct {
 	Ticker string  `json:"ticker"`
@@ -27,6 +32,39 @@ func createStock(w http.ResponseWriter, r *http.Request) {
 	stocks = append(stocks, stock)
 	json.NewEncoder(w).Encode(&stock)
 }
+
+func (store Store) createStockInDB(w http.ResponseWriter, r *http.Request) {
+	//w.Header().Set("Content-Type", "application/json")
+	var stock Stock
+	_ = json.NewDecoder(r.Body).Decode(&stock)
+	var bytesBuffer bytes.Buffer
+	e := gob.NewEncoder(&bytesBuffer)
+	if err := e.Encode(stock); err != nil {
+		panic(err)
+	}
+	store.db.Update([]byte(stock.Ticker), bytesBuffer.Bytes())
+
+	json.NewEncoder(w).Encode(&stock)
+}
+func (store Store) getStockInDB(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+
+	item, err := store.db.Get([]byte(params["ticker"]))
+	if err != nil {
+		log.Println(params["ticker"], "No found")
+		json.NewEncoder(w).Encode(&Stock{})
+	}
+
+	var stockDecode Stock
+	d := gob.NewDecoder(bytes.NewReader(item))
+	if err := d.Decode(&stockDecode); err != nil {
+		panic(err)
+	}
+
+	json.NewEncoder(w).Encode(&stockDecode)
+}
+
 func getStock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
@@ -88,7 +126,7 @@ func main() {
 	stocks = append(stocks, Stock{Ticker: "DISCA", Title: "Discovery Inc.", Rsi: 33.75})
 
 	router.HandleFunc("/stocks", getStocks).Methods("GET")
-	router.HandleFunc("/stocks", createStock).Methods("Stock")
+	router.HandleFunc("/stocks", createStock).Methods("POST")
 	router.HandleFunc("/stocks/{ticker}", getStock).Methods("GET")
 	router.HandleFunc("/stocks/{ticker}", updateStock).Methods("PUT")
 	router.HandleFunc("/stocks/{ticker}", deleteStock).Methods("DELETE")
