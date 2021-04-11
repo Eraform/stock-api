@@ -33,7 +33,7 @@ func createStock(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&stock)
 }
 
-func (store Store) createStockInDB(w http.ResponseWriter, r *http.Request) {
+func (store *Store) createStockInDB(w http.ResponseWriter, r *http.Request) {
 	//w.Header().Set("Content-Type", "application/json")
 	var stock Stock
 	_ = json.NewDecoder(r.Body).Decode(&stock)
@@ -46,7 +46,7 @@ func (store Store) createStockInDB(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(&stock)
 }
-func (store Store) getStockInDB(w http.ResponseWriter, r *http.Request) {
+func (store *Store) getStockInDB(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
