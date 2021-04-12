@@ -1,86 +1,103 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 )
 
-//func getStocks(w http.ResponseWriter, r *http.Request) {
-//	w.Header().Set("Content-Type", "application/json")
-//	json.NewEncoder(w).Encode(stocks)
-//}
-//
-//func createStock(w http.ResponseWriter, r *http.Request) {
-//	w.Header().Set("Content-Type", "application/json")
-//	var stock Stock
-//	_ = json.NewDecoder(r.Body).Decode(&stock)
-//	stocks = append(stocks, stock)
-//	json.NewEncoder(w).Encode(&stock)
-//}
-//
-//func getStock(w http.ResponseWriter, r *http.Request) {
-//	w.Header().Set("Content-Type", "application/json")
-//	params := mux.Vars(r)
-//	for _, item := range stocks {
-//		if item.Ticker == params["ticker"] {
-//			json.NewEncoder(w).Encode(item)
-//			return
-//		}
-//	}
-//	json.NewEncoder(w).Encode(&Stock{})
-//}
-//func updateStock(w http.ResponseWriter, r *http.Request) {
-//	w.Header().Set("Content-Type", "application/json")
-//	params := mux.Vars(r)
-//	for index, item := range stocks {
-//		if item.Ticker == params["ticker"] {
-//			stocks = append(stocks[:index], stocks[index+1:]...)
-//			var Stock Stock
-//			_ = json.NewDecoder(r.Body).Decode(&Stock)
-//			Stock.Ticker = params["ticker"]
-//			stocks = append(stocks, Stock)
-//			json.NewEncoder(w).Encode(&Stock)
-//			return
-//		}
-//	}
-//	json.NewEncoder(w).Encode(stocks)
-//}
-//func deleteStock(w http.ResponseWriter, r *http.Request) {
-//	w.Header().Set("Content-Type", "application/json")
-//	params := mux.Vars(r)
-//	for index, item := range stocks {
-//		if item.Ticker == params["ticker"] {
-//			stocks = append(stocks[:index], stocks[index+1:]...)
-//			break
-//		}
-//	}
-//	json.NewEncoder(w).Encode(stocks)
-//}
-
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Do stuff here
-		log.Println(r.Method, r.RequestURI)
+		log.Println(r.Host, r.Method, r.RequestURI)
 		// Call the next handler, which can be another middleware in the chain, or the final handler.
 		next.ServeHTTP(w, r)
 	})
 }
 
+func (s *Store) addStock(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var stock Stock
+	_ = json.NewDecoder(r.Body).Decode(&stock)
+	err := s.Add(stock.Ticker, stock)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	} else {
+		json.NewEncoder(w).Encode(&stock)
+	}
+}
+
+func (s *Store) getStocks(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	stocks, err := s.GetStocks()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(stocks)
+}
+
+func (s *Store) getStock(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+	stock, err := s.GetStock(params["ticker"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(stock)
+}
+
+func (s *Store) updateStock(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+	ticker := params["ticker"]
+
+	var stock Stock
+	_ = json.NewDecoder(r.Body).Decode(&stock)
+	if ticker != stock.Ticker {
+		http.Error(w, "params ticker and stock ticker do not match", http.StatusBadRequest)
+		return
+	}
+
+	err := s.Upsert(ticker, stock)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	json.NewEncoder(w).Encode(stock)
+}
+
+func (s *Store) deleteStock(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+	ticker := params["ticker"]
+
+	err := s.DeleteItem(ticker)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	return
+}
+
 func main() {
-	store, err := NewBadger("/tmp")
+	store, err := NewBadger("/tmp/datastore1")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer store.db.Close()
+	defer store.Badger().Close()
 
 	router := mux.NewRouter()
 
-	//router.HandleFunc("/stocks", getStocks).Methods("GET")
-	//router.HandleFunc("/stocks", createStock).Methods("POST")
-	//router.HandleFunc("/stocks/{ticker}", getStock).Methods("GET")
-	//router.HandleFunc("/stocks/{ticker}", updateStock).Methods("PUT")
-	//router.HandleFunc("/stocks/{ticker}", deleteStock).Methods("DELETE")
+	router.HandleFunc("/stocks", store.addStock).Methods(http.MethodPost)
+	router.HandleFunc("/stocks", store.getStocks).Methods(http.MethodGet)
+	router.HandleFunc("/stocks/{ticker}", store.getStock).Methods(http.MethodGet)
+	router.HandleFunc("/stocks/{ticker}", store.updateStock).Methods(http.MethodPut)
+	router.HandleFunc("/stocks/{ticker}", store.deleteStock).Methods(http.MethodDelete)
 
 	router.Use(loggingMiddleware)
 	http.ListenAndServe(":8080", router)

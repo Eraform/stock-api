@@ -31,6 +31,6 @@ func decodeValue(value []byte) (Stock, error) {
 		log.Println("Decoding error")
 		return Stock{}, err
 	}
-	log.Println("Stock decoded", stock)
+	//log.Println("Stock decoded", stock)
 	return stock, nil
 }
