@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"os"
 )
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -84,8 +85,20 @@ func (s *Store) deleteStock(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func (s *Store) getKeys(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	keys, err := s.GetAllKeys()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(keys)
+}
+
 func main() {
-	store, err := NewBadger("/tmp/datastore1")
+	path := getEnv("BADGER_PATH", "/tmp/badger-data")
+
+	store, err := NewBadger(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,7 +111,15 @@ func main() {
 	router.HandleFunc("/stocks/{ticker}", store.getStock).Methods(http.MethodGet)
 	router.HandleFunc("/stocks/{ticker}", store.updateStock).Methods(http.MethodPut)
 	router.HandleFunc("/stocks/{ticker}", store.deleteStock).Methods(http.MethodDelete)
+	router.HandleFunc("/keys", store.getKeys).Methods(http.MethodGet)
 
 	router.Use(loggingMiddleware)
 	http.ListenAndServe(":8080", router)
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }

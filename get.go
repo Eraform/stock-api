@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"github.com/dgraph-io/badger/v3"
-	"log"
 )
 
 // KVP simple named key value pair storage
@@ -110,7 +109,7 @@ func (s *Store) GetAllKeys() ([]string, error) {
 			row := it.Item()
 			k := row.Key()
 			results = append(results, string(k))
-			log.Printf("key=%s\n", k)
+			//log.Printf("key=%s\n", k)
 		}
 		return nil
 	})
