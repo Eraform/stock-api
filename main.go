@@ -97,6 +97,7 @@ func (s *Store) getKeys(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	path := getEnv("BADGER_PATH", "/tmp/badger-data")
+	port := getEnv("PORT", "8080")
 
 	store, err := NewBadger(path)
 	if err != nil {
@@ -114,7 +115,7 @@ func main() {
 	router.HandleFunc("/keys", store.getKeys).Methods(http.MethodGet)
 
 	router.Use(loggingMiddleware)
-	http.ListenAndServe(":8080", router)
+	http.ListenAndServe(":"+port, router)
 }
 
 func getEnv(key, fallback string) string {
