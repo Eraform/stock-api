@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -21,6 +22,7 @@ func (s *Store) addStock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var stock Stock
 	_ = json.NewDecoder(r.Body).Decode(&stock)
+	stock.Ticker = strings.ToLower(stock.Ticker)
 	err := s.Add(stock.Ticker, stock)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -43,7 +45,7 @@ func (s *Store) getStocks(w http.ResponseWriter, r *http.Request) {
 func (s *Store) getStock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	stock, err := s.GetStock(params["ticker"])
+	stock, err := s.GetStock(strings.ToLower(params["ticker"]))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -54,9 +56,9 @@ func (s *Store) getStock(w http.ResponseWriter, r *http.Request) {
 func (s *Store) updateStock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	ticker := params["ticker"]
-
+	ticker := strings.ToLower(params["ticker"])
 	var stock Stock
+	stock.Ticker = strings.ToLower(stock.Ticker)
 	_ = json.NewDecoder(r.Body).Decode(&stock)
 	if ticker != stock.Ticker {
 		http.Error(w, "params ticker and stock ticker do not match", http.StatusBadRequest)
@@ -75,7 +77,7 @@ func (s *Store) updateStock(w http.ResponseWriter, r *http.Request) {
 func (s *Store) deleteStock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	ticker := params["ticker"]
+	ticker := strings.ToLower(params["ticker"])
 
 	err := s.DeleteItem(ticker)
 	if err != nil {
